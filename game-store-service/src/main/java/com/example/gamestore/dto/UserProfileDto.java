@@ -10,6 +10,8 @@ public class UserProfileDto {
     private String displayName;
     private String profileDescription;
     private String avatarKey;
+    private String avatarUrl;
+    private String profileColor;
     private Set<Game> library;
 
     public UserProfileDto(
@@ -19,6 +21,8 @@ public class UserProfileDto {
             String displayName,
             String profileDescription,
             String avatarKey,
+            String avatarUrl,
+            String profileColor,
             Set<Game> library) {
         this.id = id;
         this.username = username;
@@ -26,6 +30,8 @@ public class UserProfileDto {
         this.displayName = displayName;
         this.profileDescription = profileDescription;
         this.avatarKey = avatarKey;
+        this.avatarUrl = avatarUrl;
+        this.profileColor = profileColor;
         this.library = library;
     }
 
@@ -51,6 +57,14 @@ public class UserProfileDto {
 
     public String getAvatarKey() {
         return avatarKey;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public String getProfileColor() {
+        return profileColor;
     }
 
     public Set<Game> getLibrary() {

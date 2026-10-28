@@ -24,6 +24,12 @@ private String profileDescription = "";
 @Column(length = 40)
 private String avatarKey = "fox-red";
 
+@Column(length = 100)
+private String avatarFilename;
+
+    @Column(length = 7)
+    private String profileColor = "#ef3340";
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
@@ -79,6 +85,23 @@ private String avatarKey = "fox-red";
 
     public void setAvatarKey(String avatarKey) {
         this.avatarKey = avatarKey;
+    }
+    public String getProfileColor() {
+        return profileColor == null
+                || !profileColor.matches("^#[0-9a-fA-F]{6}$")
+                ? "#ef3340" : profileColor;
+    }
+
+    public void setProfileColor(String profileColor) {
+        this.profileColor = profileColor;
+    }
+
+    public String getAvatarFilename() {
+        return avatarFilename;
+    }
+
+    public void setAvatarFilename(String avatarFilename) {
+        this.avatarFilename = avatarFilename;
     }
 
 
