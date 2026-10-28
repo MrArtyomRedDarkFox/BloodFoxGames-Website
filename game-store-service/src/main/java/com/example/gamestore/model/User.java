@@ -15,6 +15,15 @@ public class User {
     private String username;
     private String email;
 
+@Column(length = 80)
+private String displayName;
+
+@Column(length = 500)
+private String profileDescription = "";
+
+@Column(length = 40)
+private String avatarKey = "fox-red";
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
@@ -29,10 +38,13 @@ public class User {
     public User() {}
 
     public User(String username, String email, String password) {
-        this.username = username;
-        this.email = email;
-        this.password = password;
-    }
+    this.username = username;
+    this.email = email;
+    this.password = password;
+    this.displayName = username;
+    this.profileDescription = "";
+    this.avatarKey = "fox-red";
+}
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -42,6 +54,33 @@ public class User {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getDisplayName() {
+        return displayName == null || displayName.isBlank()
+                ? username : displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getProfileDescription() {
+        return profileDescription == null ? "" : profileDescription;
+    }
+
+    public void setProfileDescription(String profileDescription) {
+        this.profileDescription = profileDescription;
+    }
+
+    public String getAvatarKey() {
+        return avatarKey == null || avatarKey.isBlank()
+                ? "fox-red" : avatarKey;
+    }
+
+    public void setAvatarKey(String avatarKey) {
+        this.avatarKey = avatarKey;
+    }
+
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }

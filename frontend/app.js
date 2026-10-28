@@ -6,6 +6,9 @@
   const state = {
     page: (location.hash.replace(/^#\/?/, "") || "home"),
     user: readSession(),
+    profile: null,
+    profileError: "",
+    loadingProfile: false,
     games: [],
     library: [],
     search: "",
@@ -26,11 +29,20 @@
   }
   function saveSession(user) {
     // Пароль намеренно не сохраняем. Для production-системы нужна серверная сессия/JWT.
-    state.user = { id: Number(user.id), username: user.username, email: user.email || "" };
+    state.user = {
+      id: Number(user.id),
+      username: user.username,
+      email: user.email || "",
+      displayName: user.displayName || user.username,
+      profileDescription: user.profileDescription || "",
+      avatarKey: user.avatarKey || "fox-red"
+    };
     localStorage.setItem("bloodfox.session", JSON.stringify(state.user));
   }
   function clearSession() {
     state.user = null;
+    state.profile = null;
+    state.profileError = "";
     state.library = [];
     localStorage.removeItem("bloodfox.session");
   }
@@ -41,6 +53,18 @@
     const amount = Number(value);
     return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "Цена уточняется";
   }
+  function avatarSymbol(key) {
+    const symbols = {
+      "fox-red": "🦊",
+      "moon-wolf": "🌙",
+      "ember": "🔥",
+      "crimson-skull": "💀",
+      "night-cat": "🐈‍⬛",
+      "star": "✦"
+    };
+    return symbols[key] || symbols["fox-red"];
+  }
+
   async function api(path, options = {}) {
     const response = await fetch(`${API}${path}`, {
       ...options,
@@ -67,7 +91,7 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 3600);
   }
   function routeTo(page) {
-    const valid = ["home", "catalog", "library", "login", "register"];
+    const valid = ["home", "catalog", "library", "profile", "login", "register"];
     const target = valid.includes(page) ? page : "home";
     if (location.hash === `#${target}`) route();
     else location.hash = target;
@@ -93,6 +117,28 @@
       state.libraryError = `Не удалось загрузить библиотеку: ${error.message}`;
     } finally { state.loadingLibrary = false; }
   }
+  async function loadProfile() {
+    if (!state.user) {
+      state.profile = null;
+      state.profileError = "";
+      return;
+    }
+
+    state.loadingProfile = true;
+    state.profileError = "";
+
+    try {
+      state.profile = await api(
+        `/api/v1/users/${Number(state.user.id)}`
+      );
+      saveSession(state.profile);
+    } catch (error) {
+      state.profileError = `Не удалось загрузить профиль: ${error.message}`;
+    } finally {
+      state.loadingProfile = false;
+    }
+  }
+
   function logo() {
     return `<a class="brand" href="#home" aria-label="BloodFoxGames — главная">
       <span class="brand-icon" aria-hidden="true"><img src="/assets/bloodfox-logo.png" alt=""></span>
@@ -100,14 +146,19 @@
     </a>`;
   }
   function header() {
-    const nav = [{id:"home",label:"Главная"},{id:"catalog",label:"Магазин"},{id:"library",label:"Библиотека"}];
+    const nav = [
+      {id:"home",label:"Главная"},
+      {id:"catalog",label:"Магазин"},
+      {id:"library",label:"Библиотека"},
+      ...(state.user ? [{id:"profile",label:"Профиль"}] : [])
+    ];
     return `<header class="topbar"><div class="topbar-inner">
       ${logo()}
       <nav class="nav" id="main-nav" aria-label="Основная навигация">${nav.map(item => `<a class="nav-link ${state.page === item.id ? "active" : ""}" href="#${item.id}">${item.label}</a>`).join("")}</nav>
       <div class="topbar-spacer"></div>
       ${state.page === "catalog" ? `<label class="header-search"><span class="search-glyph">⌕</span><input id="header-search" aria-label="Поиск игр" placeholder="Найти игру…" value="${esc(state.search)}"></label>` : ""}
       <div class="account-area">${state.user
-        ? `<a class="user-chip" href="#library"><span class="avatar">${esc(state.user.username.slice(0,1).toUpperCase())}</span><span class="username">${esc(state.user.username)}</span></a><button class="btn btn-ghost btn-small" data-action="logout">Выйти</button>`
+        ? `<a class="user-chip" href="#profile"><span class="avatar avatar-${esc(state.user.avatarKey || "fox-red")}">${esc(avatarSymbol(state.user.avatarKey))}</span><span class="username">${esc(state.user.displayName || state.user.username)}</span></a><button class="btn btn-ghost btn-small" data-action="logout">Выйти</button>`
         : `<a class="btn btn-ghost btn-small" href="#login">Войти</a><a class="btn btn-primary btn-small" href="#register">Создать аккаунт</a>`}</div>
       <button class="mobile-menu" id="mobile-menu" aria-label="Открыть меню" aria-expanded="false">☰</button>
     </div></header>`;
@@ -159,6 +210,104 @@
       ${state.libraryError ? `<div class="api-warning">${esc(state.libraryError)}</div>` : ""}
       ${state.loadingLibrary ? `<div class="loading">Загружаем библиотеку…</div>` : state.library.length ? `<div class="game-grid">${state.library.map(game => gameCard(game,{owned:true})).join("")}</div>` : `<div class="empty-state"><div class="empty-symbol">▤</div><h2>Библиотека пока пуста</h2><p>Найди игру в магазине и нажми «Купить игру». Она появится здесь автоматически.</p><a class="btn btn-primary" href="#catalog">Перейти в магазин <span>→</span></a></div>`}`;
   }
+  function profilePage() {
+    const profile = state.profile || state.user || {};
+    const selected = profile.avatarKey || "fox-red";
+    const description = profile.profileDescription || "";
+    const options = [
+      ["fox-red", "🦊", "Красный лис"],
+      ["moon-wolf", "🌙", "Лунный волк"],
+      ["ember", "🔥", "Уголь"],
+      ["crimson-skull", "💀", "Алый череп"],
+      ["night-cat", "🐈‍⬛", "Ночная кошка"],
+      ["star", "✦", "Звезда"]
+    ];
+
+    return `
+      <section class="page-banner profile-page-banner">
+        <span class="page-kicker">PLAYER PROFILE</span>
+        <h1>Профиль игрока</h1>
+        <p>Твоя игровая личность. Настрой профиль так, как тебе нравится.</p>
+      </section>
+
+      ${state.profileError ? `<div class="api-warning">${esc(state.profileError)}</div>` : ""}
+
+      <div class="profile-layout">
+        <section class="profile-card">
+          <div class="profile-avatar-preview avatar-${esc(selected)}"
+               id="profile-avatar-preview">${esc(avatarSymbol(selected))}</div>
+
+          <h2 id="profile-display-name-preview">${esc(profile.displayName || profile.username || "Игрок")}</h2>
+          <p class="profile-handle">@${esc(profile.username || "")}</p>
+
+          <p class="profile-bio-preview" id="profile-bio-preview">
+            ${esc(description || "Добавь описание, чтобы рассказать о себе.")}
+          </p>
+
+          <div class="profile-stat-row">
+            <div>
+              <strong>${state.library.length}</strong>
+              <span>игр в библиотеке</span>
+            </div>
+            <div>
+              <strong>BFG</strong>
+              <span>BloodFoxGames</span>
+            </div>
+          </div>
+
+          <a class="btn btn-secondary profile-library-link" href="#library">
+            Открыть библиотеку →
+          </a>
+        </section>
+
+        <section class="profile-settings">
+          <h2>Настройки профиля</h2>
+          <p class="form-lead">Измени отображаемое имя, описание и аватар.</p>
+
+          <form id="profile-form">
+            <label class="form-field">
+              <span>Отображаемое имя</span>
+              <input name="displayName"
+                     required minlength="1" maxlength="32"
+                     value="${esc(profile.displayName || profile.username || "")}"
+                     placeholder="Как тебя будут видеть игроки">
+            </label>
+
+            <label class="form-field">
+              <span>О себе</span>
+              <textarea name="profileDescription"
+                        rows="4" maxlength="500"
+                        placeholder="Расскажи о себе и своих любимых играх">${esc(description)}</textarea>
+              <small class="profile-hint">До 500 символов.</small>
+            </label>
+
+            <div class="form-field">
+              <span>Выбери аватар</span>
+              <div class="avatar-picker">
+                ${options.map(([key, symbol, label]) => `
+                  <button type="button"
+                          class="avatar-option ${selected === key ? "selected" : ""}"
+                          data-avatar="${key}"
+                          data-avatar-symbol="${symbol}"
+                          data-avatar-label="${label}"
+                          aria-pressed="${selected === key}">
+                    <span>${symbol}</span>
+                    <small>${label}</small>
+                  </button>
+                `).join("")}
+              </div>
+              <input type="hidden" name="avatarKey" id="profile-avatar-key" value="${esc(selected)}">
+              <p class="profile-hint" id="profile-selected-avatar">Выбран: ${esc(options.find(item => item[0] === selected)?.[2] || "Красный лис")}</p>
+            </div>
+
+            <button class="btn btn-primary profile-save" type="submit">
+              Сохранить изменения →
+            </button>
+          </form>
+        </section>
+      </div>`;
+  }
+
   function authPage(mode) {
     const register = mode === "register";
     return `<section class="auth-layout"><div class="auth-art"><a class="brand" href="#home"><span class="brand-icon"><img src="/assets/bloodfox-logo.png" alt=""></span><span class="brand-word">BLOOD<span>FOX</span>GAMES<span class="brand-caption">PLAY BEYOND THE DARK</span></span></a><div><h2>${register ? "Начни свою игровую историю." : "С возвращением, игрок."}</h2><p>${register ? "Создай аккаунт, открывай новые миры и собирай свою коллекцию." : "Войди в аккаунт, чтобы вернуться к играм из своей библиотеки."}</p></div><span class="eyebrow">YOUR NEXT ADVENTURE STARTS HERE</span></div>
@@ -176,16 +325,23 @@
     let content;
     if (state.page === "catalog") content = catalogPage();
     else if (state.page === "library") content = libraryPage();
+    else if (state.page === "profile") content = profilePage();
     else if (state.page === "login" || state.page === "register") content = authPage(state.page);
     else { state.page = "home"; content = homePage(); }
     shell(content);
   }
   async function route() {
     state.page = location.hash.replace(/^#\/?/, "") || "home";
-    if (!["home", "catalog", "library", "login", "register"].includes(state.page)) state.page = "home";
+    if (!["home", "catalog", "library", "profile", "login", "register"].includes(state.page)) state.page = "home";
+    if (state.page === "profile" && !state.user) {
+      state.nextPage = "profile";
+      routeTo("login");
+      return;
+    }
     await loadGames();
     if (state.page === "library") await loadLibrary();
     else if (state.user) await loadLibrary();
+    if (state.page === "profile") await loadProfile();
     render();
   }
   async function handleBuy(button) {
@@ -233,9 +389,71 @@
       button.textContent = mode === "register" ? "Создать аккаунт →" : "Войти в аккаунт →";
     }
   }
+  async function handleProfileSave(form) {
+    const button = form.querySelector('button[type="submit"]');
+    const originalText = button.textContent;
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    if (!state.user) {
+      notify("Войди в аккаунт, чтобы менять профиль.", true);
+      routeTo("login");
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Сохраняем…";
+
+    try {
+      const result = await api(
+        `/api/v1/users/${Number(state.user.id)}/profile`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            displayName: data.displayName,
+            profileDescription: data.profileDescription,
+            avatarKey: data.avatarKey
+          })
+        }
+      );
+
+      state.profile = result;
+      saveSession(result);
+      await loadLibrary();
+      notify("Настройки профиля сохранены!");
+      render();
+    } catch (error) {
+      notify(`Не удалось сохранить профиль: ${error.message}`, true);
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+
   app.addEventListener("click", async event => {
     const routeButton = event.target.closest("[data-route]");
     if (routeButton) { routeTo(routeButton.dataset.route); return; }
+    const avatarButton = event.target.closest("[data-avatar]");
+    if (avatarButton) {
+      const key = avatarButton.dataset.avatar;
+      const hidden = app.querySelector("#profile-avatar-key");
+      if (hidden) hidden.value = key;
+
+      app.querySelectorAll("[data-avatar]").forEach(button => {
+        const selected = button.dataset.avatar === key;
+        button.classList.toggle("selected", selected);
+        button.setAttribute("aria-pressed", String(selected));
+      });
+
+      const preview = app.querySelector("#profile-avatar-preview");
+      if (preview) {
+        preview.textContent = avatarButton.dataset.avatarSymbol || "🦊";
+        preview.className = `profile-avatar-preview avatar-${key}`;
+      }
+
+      const label = app.querySelector("#profile-selected-avatar");
+      if (label) label.textContent = `Выбран: ${avatarButton.dataset.avatarLabel || key}`;
+      return;
+    }
+
     const actionButton = event.target.closest("[data-action]");
     if (!actionButton) return;
     const action = actionButton.dataset.action;
@@ -248,6 +466,11 @@
     if (action === "refresh") { await loadGames(); render(); }
   });
   app.addEventListener("submit", async event => {
+    if (event.target.id === "profile-form") {
+      event.preventDefault();
+      await handleProfileSave(event.target);
+      return;
+    }
     if (event.target.id === "auth-form") {
       event.preventDefault();
       await handleAuth(event.target);
@@ -255,6 +478,14 @@
   });
   app.addEventListener("input", event => {
     const input = event.target;
+    if (input.name === "displayName") {
+      const preview = document.getElementById("profile-display-name-preview");
+      if (preview) preview.textContent = input.value.trim() || state.user?.username || "Игрок";
+    }
+    if (input.name === "profileDescription") {
+      const preview = document.getElementById("profile-bio-preview");
+      if (preview) preview.textContent = input.value.trim() || "Добавь описание, чтобы рассказать о себе.";
+    }
     if (input.id === "catalog-search" || input.id === "header-search") {
       state.search = input.value;
       const current = input;

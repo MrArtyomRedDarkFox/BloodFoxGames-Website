@@ -3,6 +3,7 @@ package com.example.gamestore.service;
 import com.example.gamestore.dto.LoginDto;
 import com.example.gamestore.dto.RegisterDto;
 import com.example.gamestore.dto.UserProfileDto;
+import com.example.gamestore.dto.UpdateProfileDto;
 import com.example.gamestore.model.Game;
 import com.example.gamestore.model.User;
 import com.example.gamestore.repository.GameRepository;
@@ -67,7 +68,72 @@ public class UserService {
     public UserProfileDto getProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Пользователь не найден"));
-        return new UserProfileDto(user.getId(), user.getUsername(), user.getEmail(), user.getLibrary());
+        return new UserProfileDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getDisplayName(),
+                user.getProfileDescription(),
+                user.getAvatarKey(),
+                user.getLibrary()
+        );
+    }
+
+
+    @Transactional
+    public UserProfileDto updateProfile(Long userId, UpdateProfileDto dto) {
+        if (dto == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Настройки не переданы");
+        }
+
+        String displayName = dto.getDisplayName() == null
+                ? "" : dto.getDisplayName().trim();
+        String description = dto.getProfileDescription() == null
+                ? "" : dto.getProfileDescription().trim();
+        String avatarKey = dto.getAvatarKey() == null
+                ? "" : dto.getAvatarKey().trim();
+
+        if (displayName.isBlank() || displayName.length() > 32) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Имя должно содержать от 1 до 32 символов");
+        }
+
+        if (description.length() > 500) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Описание не должно превышать 500 символов");
+        }
+
+        Set<String> allowedAvatars = Set.of(
+                "fox-red", "moon-wolf", "ember",
+                "crimson-skull", "night-cat", "star"
+        );
+
+        if (!allowedAvatars.contains(avatarKey)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Неизвестный аватар");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Пользователь не найден"));
+
+        user.setDisplayName(displayName);
+        user.setProfileDescription(description);
+        user.setAvatarKey(avatarKey);
+        userRepository.save(user);
+
+        return new UserProfileDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getDisplayName(),
+                user.getProfileDescription(),
+                user.getAvatarKey(),
+                user.getLibrary()
+        );
     }
 
     @Transactional

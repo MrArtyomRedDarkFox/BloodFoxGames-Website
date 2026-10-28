@@ -3,6 +3,7 @@ package com.example.gamestore.controller;
 import com.example.gamestore.dto.LoginDto;
 import com.example.gamestore.dto.RegisterDto;
 import com.example.gamestore.dto.UserProfileDto;
+import com.example.gamestore.dto.UpdateProfileDto;
 import com.example.gamestore.model.Game;
 import com.example.gamestore.model.User;
 import com.example.gamestore.service.UserService;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +40,14 @@ public class UserController {
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileDto> getProfile(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getProfile(userId));
+    }
+
+
+    @PutMapping("/{userId}/profile")
+    public ResponseEntity<UserProfileDto> updateProfile(
+            @PathVariable Long userId,
+            @RequestBody UpdateProfileDto dto) {
+        return ResponseEntity.ok(userService.updateProfile(userId, dto));
     }
 
     @PostMapping("/{userId}/buy/{gameId}")
