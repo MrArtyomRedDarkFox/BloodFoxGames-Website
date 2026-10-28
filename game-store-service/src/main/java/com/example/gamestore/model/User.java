@@ -30,6 +30,12 @@ private String avatarFilename;
     @Column(length = 7)
     private String profileColor = "#ef3340";
 
+    @Column(length = 100)
+    private String coverFilename;
+
+    @Column(length = 7)
+    private String coverColor = "#17191f";
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
@@ -102,6 +108,24 @@ private String avatarFilename;
 
     public void setAvatarFilename(String avatarFilename) {
         this.avatarFilename = avatarFilename;
+    }
+
+    public String getCoverFilename() {
+        return coverFilename;
+    }
+
+    public void setCoverFilename(String coverFilename) {
+        this.coverFilename = coverFilename;
+    }
+
+    public String getCoverColor() {
+        return coverColor == null
+                || !coverColor.matches("^#[0-9a-fA-F]{6}$")
+                ? "#17191f" : coverColor;
+    }
+
+    public void setCoverColor(String coverColor) {
+        this.coverColor = coverColor;
     }
 
 

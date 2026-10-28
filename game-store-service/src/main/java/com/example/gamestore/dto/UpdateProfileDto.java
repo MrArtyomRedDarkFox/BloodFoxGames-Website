@@ -5,6 +5,7 @@ public class UpdateProfileDto {
     private String profileDescription;
     private String avatarKey;
     private String profileColor;
+    private String coverColor;
 
     public String getDisplayName() {
         return displayName;
@@ -36,5 +37,13 @@ public class UpdateProfileDto {
 
     public void setProfileColor(String profileColor) {
         this.profileColor = profileColor;
+    }
+
+    public String getCoverColor() {
+        return coverColor;
+    }
+
+    public void setCoverColor(String coverColor) {
+        this.coverColor = coverColor;
     }
 }

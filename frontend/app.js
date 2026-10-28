@@ -9,6 +9,7 @@
     profile: null,
     profileError: "",
     avatarVersion: 0,
+    coverVersion: 0,
     loadingProfile: false,
     games: [],
     library: [],
@@ -38,7 +39,9 @@
       profileDescription: user.profileDescription || "",
       avatarKey: user.avatarKey || "fox-red",
       avatarUrl: user.avatarUrl || null,
-      profileColor: safeProfileColor(user.profileColor)
+      profileColor: safeProfileColor(user.profileColor),
+      coverUrl: user.coverUrl || null,
+      coverColor: safeCoverColor(user.coverColor)
     };
     localStorage.setItem("bloodfox.session", JSON.stringify(state.user));
   }
@@ -72,6 +75,12 @@
     return typeof value === "string"
       && /^#[0-9a-fA-F]{6}$/.test(value)
       ? value : "#ef3340";
+  }
+
+  function safeCoverColor(value) {
+    return typeof value === "string"
+      && /^#[0-9a-fA-F]{6}$/.test(value)
+      ? value : "#17191f";
   }
 
 
@@ -237,9 +246,12 @@
     return `
       <div class="community-profile" style="--profile-accent: ${safeProfileColor(profile.profileColor)}">
       <section class="community-profile-card">
-        <div class="community-cover">
+        <div class="community-cover ${profile.coverUrl ? "has-cover-image" : "cover-solid"}"
+             style="--cover-color: ${safeCoverColor(profile.coverColor)}">
+          ${profile.coverUrl
+            ? `<img class="community-cover-image" src="${esc(profile.coverUrl)}?v=${state.coverVersion}" alt="">`
+            : `<span class="community-cover-symbol">✦</span>`}
           <span class="community-cover-label">BLOODFOXGAMES / PLAYER SPACE</span>
-          <span class="community-cover-symbol">✦</span>
         </div>
         <div class="community-profile-head">
           ${avatarMarkup(profile, "community-avatar")}
@@ -317,6 +329,7 @@
     const selected = profile.avatarKey || "fox-red";
     const description = profile.profileDescription || "";
     const profileColor = safeProfileColor(profile.profileColor);
+    const coverColor = safeCoverColor(profile.coverColor);
     const options = [
       ["fox-red", "🦊", "Красный лис"],
       ["moon-wolf", "🌙", "Лунный волк"],
@@ -399,6 +412,47 @@
               </div>
               <small class="profile-hint">По умолчанию — BloodFox Red (#ef3340).</small>
             </label>
+
+            <section class="cover-settings-panel">
+              <h3>Фоновая область профиля</h3>
+              <p class="profile-hint">
+                Загрузи собственную обложку или используй однотонный фон.
+                Если изображение загружено, оно будет отображаться вместо цвета.
+              </p>
+
+              <div id="cover-preview" class="cover-preview"
+                   style="--cover-color: ${coverColor}">
+                ${profile.coverUrl
+                  ? `<img src="${esc(profile.coverUrl)}?v=${state.coverVersion}" alt="Текущая обложка">`
+                  : `<span>Однотонный фон</span>`}
+              </div>
+
+              <div class="form-field">
+                <span>Изображение обложки</span>
+                <input id="cover-file" name="coverFile" type="file"
+                       accept="image/png,image/jpeg">
+                <small class="profile-hint">
+                  PNG или JPEG, до 8 МБ. Для широкого баннера лучше использовать горизонтальное изображение.
+                </small>
+                <div class="avatar-upload-actions">
+                  <button class="btn btn-primary btn-small" type="button"
+                          data-action="upload-cover">Загрузить обложку</button>
+                  <button class="btn btn-secondary btn-small" type="button"
+                          data-action="delete-cover">Удалить изображение</button>
+                </div>
+              </div>
+
+              <label class="form-field profile-color-field">
+                <span>Однотонный цвет фона</span>
+                <div class="profile-color-control">
+                  <input id="cover-color" name="coverColor" type="color"
+                         value="${coverColor}">
+                  <span class="profile-color-help">
+                    Этот цвет будет виден, когда изображение обложки не загружено.
+                  </span>
+                </div>
+              </label>
+            </section>
 
             <div class="form-field avatar-upload-field">
               <span>Своё изображение профиля</span>
@@ -608,6 +662,90 @@
     }
   }
 
+
+  async function handleCoverUpload(button) {
+    if (!state.user) {
+      notify("Войди в аккаунт, чтобы менять обложку.", true);
+      routeTo("login");
+      return;
+    }
+
+    const input = document.getElementById("cover-file");
+    const file = input?.files?.[0];
+
+    if (!file) {
+      notify("Сначала выбери изображение обложки.", true);
+      return;
+    }
+
+    if (!["image/png", "image/jpeg"].includes(file.type)
+        || file.size > 8 * 1024 * 1024) {
+      notify("Выбери PNG или JPEG размером до 8 МБ.", true);
+      return;
+    }
+
+    const oldText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Загружаем…";
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `/api/v1/users/${Number(state.user.id)}/cover`,
+        { method: "POST", body: formData }
+      );
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || payload.message || `Ошибка HTTP ${response.status}`);
+      }
+
+      state.coverVersion = Date.now();
+      await loadProfile();
+      render();
+      notify("Обложка профиля загружена.");
+    } catch (error) {
+      notify(`Не удалось загрузить обложку: ${error.message}`, true);
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+
+  async function handleCoverDelete(button) {
+    if (!state.user) {
+      notify("Войди в аккаунт, чтобы менять обложку.", true);
+      routeTo("login");
+      return;
+    }
+
+    const oldText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Удаляем…";
+
+    try {
+      const response = await fetch(
+        `/api/v1/users/${Number(state.user.id)}/cover`,
+        { method: "DELETE" }
+      );
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || payload.message || `Ошибка HTTP ${response.status}`);
+      }
+
+      state.coverVersion = Date.now();
+      await loadProfile();
+      render();
+      notify("Изображение удалено. Теперь используется однотонный фон.");
+    } catch (error) {
+      notify(`Не удалось удалить обложку: ${error.message}`, true);
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+
   async function handleProfileSave(form) {
     const button = form.querySelector('button[type="submit"]');
     const originalText = button.textContent;
@@ -642,7 +780,8 @@
             displayName: data.displayName,
             profileDescription: data.profileDescription,
             avatarKey: data.avatarKey,
-            profileColor: safeProfileColor(data.profileColor)
+            profileColor: safeProfileColor(data.profileColor),
+            coverColor: safeCoverColor(data.coverColor)
           })
         }
       );
@@ -699,6 +838,8 @@
     }
     if (action === "upload-avatar") await handleAvatarUpload(actionButton);
     if (action === "delete-avatar") await handleAvatarDelete(actionButton);
+    if (action === "upload-cover") await handleCoverUpload(actionButton);
+    if (action === "delete-cover") await handleCoverDelete(actionButton);
     if (action === "refresh") { await loadGames(); render(); }
   });
   app.addEventListener("submit", async event => {
@@ -713,21 +854,27 @@
     }
   });
   app.addEventListener("change", event => {
-    if (event.target.id !== "avatar-file") return;
+    const input = event.target;
+    const isAvatar = input.id === "avatar-file";
+    const isCover = input.id === "cover-file";
+    if (!isAvatar && !isCover) return;
 
-    const file = event.target.files?.[0];
+    const file = input.files?.[0];
     if (!file) return;
 
-    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      notify("Выбери PNG или JPEG размером до 5 МБ.", true);
-      event.target.value = "";
+    const limit = isCover ? 8 * 1024 * 1024 : 5 * 1024 * 1024;
+    const label = isCover ? "обложки" : "аватара";
+
+    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > limit) {
+      notify(`Выбери PNG или JPEG для ${label} размером до ${isCover ? 8 : 5} МБ.`, true);
+      input.value = "";
       return;
     }
 
-    const preview = app.querySelector("#profile-avatar-preview");
+    const preview = app.querySelector(isCover ? "#cover-preview" : "#profile-avatar-preview");
     if (preview) {
       const image = document.createElement("img");
-      image.alt = "Предпросмотр аватара";
+      image.alt = isCover ? "Предпросмотр обложки" : "Предпросмотр аватара";
       image.src = URL.createObjectURL(file);
       preview.replaceChildren(image);
     }
@@ -739,6 +886,11 @@
       const color = safeProfileColor(input.value);
       const settings = app.querySelector(".profile-settings");
       if (settings) settings.style.setProperty("--profile-accent", color);
+    }
+    if (input.name === "coverColor") {
+      const color = safeCoverColor(input.value);
+      const preview = app.querySelector("#cover-preview");
+      if (preview) preview.style.setProperty("--cover-color", color);
     }
     if (input.name === "displayName") {
       const preview = document.getElementById("profile-display-name-preview");

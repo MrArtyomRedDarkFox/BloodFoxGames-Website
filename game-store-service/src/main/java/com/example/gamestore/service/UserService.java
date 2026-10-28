@@ -78,6 +78,9 @@ public class UserService {
                 user.getAvatarFilename() == null
                         ? null : "/api/v1/users/" + user.getId() + "/avatar",
                 user.getProfileColor(),
+                user.getCoverFilename() == null ? null
+                        : "/api/v1/users/" + user.getId() + "/cover",
+                user.getCoverColor(),
                 user.getLibrary()
         );
     }
@@ -98,11 +101,20 @@ public class UserService {
                 ? "" : dto.getAvatarKey().trim();
 
         String profileColor = dto.getProfileColor();
+        String coverColor = dto.getCoverColor();
+
         if (profileColor != null
                 && !profileColor.matches("^#[0-9a-fA-F]{6}$")) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Цвет должен быть в формате #RRGGBB");
+        }
+
+        if (coverColor != null
+                && !coverColor.matches("^#[0-9a-fA-F]{6}$")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Цвет обложки должен быть в формате #RRGGBB");
         }
 
         if (displayName.isBlank() || displayName.length() > 32) {
@@ -137,6 +149,9 @@ public class UserService {
         if (profileColor != null) {
             user.setProfileColor(profileColor);
         }
+        if (coverColor != null) {
+            user.setCoverColor(coverColor);
+        }
         userRepository.save(user);
 
         return new UserProfileDto(
@@ -149,6 +164,9 @@ public class UserService {
                 user.getAvatarFilename() == null
                         ? null : "/api/v1/users/" + user.getId() + "/avatar",
                 user.getProfileColor(),
+                user.getCoverFilename() == null ? null
+                        : "/api/v1/users/" + user.getId() + "/cover",
+                user.getCoverColor(),
                 user.getLibrary()
         );
     }
