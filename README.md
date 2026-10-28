@@ -87,3 +87,30 @@ curl -i http://localhost:8082/health
 ## Установка фронтенд-обновления
 
 Дополнительная инструкция по применению фронтенд-оверлея — [FRONTEND_SETUP.md](./FRONTEND_SETUP.md).
+
+System Architecture
+
+BloodFoxGames uses a containerized microservice architecture built with Java Spring Boot, Python FastAPI, PostgreSQL, Nginx, and Docker Compose.
+
+The architecture diagram describes the system at three levels:
+
+    Level 1 — System Context: the player, browser, and BloodFoxGames system.
+
+    Level 2 — Container Diagram: frontend, backend services, PostgreSQL, and persistent image storage.
+
+    Level 3 — Component Diagram: controllers, services, repositories, profile management, and data flows.
+
+Architecture Diagram
+
+
+Main Components
+Component	Technology	Port
+Frontend	Nginx, HTML, CSS, JavaScript	3000
+Game Store Service	Java, Spring Boot	8080
+Users Service	Java, Spring Boot	8081
+Notifications Service	Python, FastAPI	8082
+Database	PostgreSQL	5432
+
+Uploaded profile avatars and cover images are stored in the persistent Docker volume user_uploads. User records, game data, library relationships, and profile settings are stored in PostgreSQL.
+
+The diagram documents the main architecture and data flows of the application. Refer to the source code and Docker Compose configuration for implementation details.
